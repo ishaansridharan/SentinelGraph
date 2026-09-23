@@ -65,7 +65,7 @@ class LeidenRequest(BaseModel):
 class AnalyticsRunResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    run_id: str = Field(alias="runId")
+    run_id: str = Field(..., alias="runId")
     algorithm: str
     status: str
     metrics: Dict[str, Any]

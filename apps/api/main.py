@@ -40,6 +40,39 @@ def health_check():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/v1/metrics")
+def get_metrics():
+    try:
+        total_incidents = db.incident_logs.count_documents({})
+        pending_outbox  = db.outbox_events.count_documents({"status": "PENDING"})
+        severity_counts = list(db.incident_logs.aggregate([
+            {"$group": {"_id": "$risk.severity", "count": {"$sum": 1}}}
+        ]))
+        event_type_counts = list(db.incident_logs.aggregate([
+            {"$group": {"_id": "$eventType", "count": {"$sum": 1}}}
+        ]))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        with neo4j_driver.session() as session:
+            result = session.run("MATCH (n) RETURN count(n) AS nodeCount")
+            node_count = result.single()["nodeCount"]
+            result2 = session.run("MATCH ()-[r]->() RETURN count(r) AS relCount")
+            rel_count = result2.single()["relCount"]
+    except Exception:
+        node_count = -1
+        rel_count  = -1
+
+    return {
+        "totalIncidents":   total_incidents,
+        "pendingOutbox":    pending_outbox,
+        "graphNodes":       node_count,
+        "graphRelationships": rel_count,
+        "bySeverity":       {r["_id"]: r["count"] for r in severity_counts},
+        "byEventType":      {r["_id"]: r["count"] for r in event_type_counts},
+    }
+
 @app.post("/api/v1/incidents", status_code=201)
 def create_incident(incident: IncidentLogSchema):
     incident_dict = incident.model_dump(by_alias=True)
@@ -69,43 +102,93 @@ def create_incident(incident: IncidentLogSchema):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/graph/blast-radius/{entityKey}")
-def get_blast_radius(entityKey: str, max_hops: int = Query(3), min_confidence: int = Query(50)):
+def get_blast_radius(entityKey: str):
     query = """
-    MATCH p=(origin:Entity {entityKey: $entityKey})-[r*1..3]-(connected:Entity)
-    WHERE ALL(rel IN r WHERE rel.confidence >= $min_confidence)
-    RETURN origin, nodes(p) AS nodes, relationships(p) AS edges
+    MATCH (origin)
+    WHERE (origin.entityKey IS NOT NULL AND toLower(origin.entityKey) = toLower($key))
+       OR (origin.id IS NOT NULL AND toLower(origin.id) = toLower($key))
+       OR (origin.name IS NOT NULL AND toLower(origin.name) = toLower($key))
+       OR (origin.label IS NOT NULL AND toLower(origin.label) = toLower($key))
+       OR (origin.value IS NOT NULL AND toLower(origin.value) = toLower($key))
+       OR (origin.entityKey IS NOT NULL AND toLower(origin.entityKey) CONTAINS toLower($key))
+       OR (origin.id IS NOT NULL AND toLower(origin.id) CONTAINS toLower($key))
+       OR (origin.name IS NOT NULL AND toLower(origin.name) CONTAINS toLower($key))
+    OPTIONAL MATCH (origin)-[r]-(connected)
+    RETURN origin, labels(origin) AS origin_labels, r, type(r) AS rel_type, connected, labels(connected) AS connected_labels
+    LIMIT 200
     """
     
     with neo4j_driver.session() as session:
-        result = session.run(query, entityKey=entityKey, min_confidence=min_confidence)
-        
-        response_data = {
-            "origin": {},
-            "nodes": [],
-            "edges": []
-        }
+        result = session.run(query, key=entityKey)
         
         nodes_seen = set()
         edges_seen = set()
+        nodes = []
+        edges = []
+        origin_dict = {}
 
         for record in result:
-            origin_node = record["origin"]
-            if not response_data["origin"]:
-                response_data["origin"] = dict(origin_node)
-            
-            for node in record["nodes"]:
-                node_id = node.element_id
-                if node_id not in nodes_seen:
-                    nodes_seen.add(node_id)
-                    response_data["nodes"].append(dict(node))
-            
-            for edge in record["edges"]:
-                edge_id = edge.element_id
-                if edge_id not in edges_seen:
-                    edges_seen.add(edge_id)
-                    response_data["edges"].append(dict(edge))
+            o = record["origin"]
+            if o and o.element_id not in nodes_seen:
+                nodes_seen.add(o.element_id)
+                d = dict(o)
+                d["_labels"] = list(o.labels)
+                d["_element_id"] = o.element_id
+                nodes.append(d)
+                if not origin_dict:
+                    origin_dict = d
 
-        return response_data
+            c = record["connected"]
+            if c and c.element_id not in nodes_seen:
+                nodes_seen.add(c.element_id)
+                d = dict(c)
+                d["_labels"] = list(c.labels)
+                d["_element_id"] = c.element_id
+                nodes.append(d)
+
+            r = record["r"]
+            if r and r.element_id not in edges_seen:
+                edges_seen.add(r.element_id)
+                rd = dict(r)
+                rd["_element_id"] = r.element_id
+                rd["_start_id"] = r.start_node.element_id
+                rd["_end_id"] = r.end_node.element_id
+                rd["_type"] = record["rel_type"]
+                edges.append(rd)
+
+        return {
+            "origin": origin_dict,
+            "nodes": nodes,
+            "edges": edges
+        }
+
+@app.get("/api/v1/graph/full")
+def get_full_graph():
+    nodes_query = "MATCH (n) RETURN n, labels(n) AS lbls"
+    edges_query = "MATCH (a)-[r]->(b) RETURN a, r, b, type(r) AS rel_type"
+
+    with neo4j_driver.session() as session:
+        nodes_result = session.run(nodes_query)
+        nodes = []
+        for record in nodes_result:
+            node = record["n"]
+            props = dict(node)
+            props["_labels"] = record["lbls"]
+            props["_element_id"] = node.element_id
+            nodes.append(props)
+
+        edges_result = session.run(edges_query)
+        edges = []
+        for record in edges_result:
+            rel = record["r"]
+            props = dict(rel)
+            props["_element_id"] = rel.element_id
+            props["_start_id"]   = record["a"].element_id
+            props["_end_id"]     = record["b"].element_id
+            props["_type"]       = record["rel_type"]
+            edges.append(props)
+
+    return {"nodes": nodes, "edges": edges}
 
 @app.post("/api/v1/analytics/pagerank/run", response_model=AnalyticsRunResponse)
 def run_pagerank(request: PageRankRequest):
@@ -152,14 +235,14 @@ def run_communities(request: LeidenRequest):
         session.run("CALL gds.graph.drop('cti-infrastructure', false)")
         
         session.run(
-            "CALL gds.graph.project('cti-infrastructure', ['Malware', 'Domain', 'IPAddress', 'ThreatActor', 'Incident'], "
-            "{COMMUNICATES_WITH: {orientation: 'NATURAL', properties: 'confidence'}, "
-            "RESOLVES_TO: {orientation: 'NATURAL', properties: 'confidence'}, "
-            "INDICATES: {orientation: 'NATURAL', properties: 'confidence'}})"
+            "CALL gds.graph.project('cti-communities', ['Malware', 'Domain', 'IPAddress', 'ThreatActor', 'Incident'], "
+            "{COMMUNICATES_WITH: {orientation: 'UNDIRECTED', properties: 'confidence'}, "
+            "RESOLVES_TO: {orientation: 'UNDIRECTED', properties: 'confidence'}, "
+            "INDICATES: {orientation: 'UNDIRECTED', properties: 'confidence'}})"
         )
         
         result = session.run(
-            "CALL gds.leiden.write('cti-infrastructure', {relationshipWeightProperty: $weightProperty, "
+            "CALL gds.leiden.write('cti-communities', {relationshipWeightProperty: $weightProperty, "
             "writeProperty: 'campaignClusterId', includeIntermediateCommunities: $includeIntermediate}) "
             "YIELD communityCount, modularities",
             weightProperty=request.weight_property,
@@ -171,7 +254,7 @@ def run_communities(request: LeidenRequest):
             "modularities": record["modularities"] if record else []
         }
         
-        session.run("CALL gds.graph.drop('cti-infrastructure', false)")
+        session.run("CALL gds.graph.drop('cti-communities', false)")
         
     return AnalyticsRunResponse(
         run_id=run_id,
