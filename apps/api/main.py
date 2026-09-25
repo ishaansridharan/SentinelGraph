@@ -13,7 +13,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from packages.domain.schemas import (
-    IncidentLogSchema, OutboxEventSchema, OutboxStatus,
+    IncidentLogSchema, IncidentUpdateSchema, OutboxEventSchema, OutboxStatus,
     PageRankRequest, LeidenRequest, AnalyticsRunResponse
 )
 
@@ -97,6 +97,140 @@ def create_incident(incident: IncidentLogSchema):
             "status": "success", 
             "message": "Incident ingested and queued for graph projection", 
             "eventId": incident.event_id
+        }
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/incidents")
+def list_incidents(limit: int = Query(default=100, ge=1, le=500), skip: int = Query(default=0, ge=0)):
+    try:
+        incidents = list(
+            db.incident_logs.find({}, {"_id": 0})
+            .sort("observedAt", -1)
+            .skip(skip)
+            .limit(limit)
+        )
+        total = db.incident_logs.count_documents({})
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"total": total, "incidents": incidents}
+
+@app.get("/api/v1/incidents/{event_id}")
+def get_incident(event_id: str):
+    try:
+        incident = db.incident_logs.find_one({"eventId": event_id}, {"_id": 0})
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if incident is None:
+        raise HTTPException(status_code=404, detail=f"Incident {event_id} not found")
+
+    return incident
+
+@app.put("/api/v1/incidents/{event_id}")
+def replace_incident(event_id: str, incident: IncidentLogSchema):
+    if incident.event_id != event_id:
+        raise HTTPException(
+            status_code=400,
+            detail="eventId in request body must match eventId in URL path"
+        )
+
+    existing = db.incident_logs.find_one({"eventId": event_id})
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Incident {event_id} not found")
+
+    incident_dict = incident.model_dump(by_alias=True)
+
+    outbox_doc = {
+        "eventId": f"out_{uuid.uuid4()}",
+        "aggregateId": event_id,
+        "eventType": "INCIDENT_UPDATED",
+        "payload": incident_dict,
+        "status": "pending",
+        "attempts": 0,
+        "createdAt": datetime.utcnow()
+    }
+
+    try:
+        with mongo_client.start_session() as session:
+            with session.start_transaction():
+                db.incident_logs.replace_one({"eventId": event_id}, incident_dict, session=session)
+                db.outbox_events.insert_one(outbox_doc, session=session)
+
+        return {
+            "status": "success",
+            "message": "Incident replaced and queued for graph projection",
+            "eventId": event_id
+        }
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/v1/incidents/{event_id}")
+def update_incident(event_id: str, patch: IncidentUpdateSchema):
+    update_fields = patch.model_dump(by_alias=True, exclude_unset=True)
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields provided to update")
+
+    existing = db.incident_logs.find_one({"eventId": event_id})
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Incident {event_id} not found")
+
+    merged = {**existing, **update_fields}
+    merged.pop("_id", None)
+
+    outbox_doc = {
+        "eventId": f"out_{uuid.uuid4()}",
+        "aggregateId": event_id,
+        "eventType": "INCIDENT_UPDATED",
+        "payload": merged,
+        "status": "pending",
+        "attempts": 0,
+        "createdAt": datetime.utcnow()
+    }
+
+    try:
+        with mongo_client.start_session() as session:
+            with session.start_transaction():
+                db.incident_logs.update_one(
+                    {"eventId": event_id}, {"$set": update_fields}, session=session
+                )
+                db.outbox_events.insert_one(outbox_doc, session=session)
+
+        return {
+            "status": "success",
+            "message": "Incident updated and queued for graph projection",
+            "eventId": event_id
+        }
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/v1/incidents/{event_id}")
+def delete_incident(event_id: str):
+    existing = db.incident_logs.find_one({"eventId": event_id})
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Incident {event_id} not found")
+
+    outbox_doc = {
+        "eventId": f"out_{uuid.uuid4()}",
+        "aggregateId": event_id,
+        "eventType": "INCIDENT_DELETED",
+        "payload": {"eventId": event_id},
+        "status": "pending",
+        "attempts": 0,
+        "createdAt": datetime.utcnow()
+    }
+
+    try:
+        with mongo_client.start_session() as session:
+            with session.start_transaction():
+                db.incident_logs.delete_one({"eventId": event_id}, session=session)
+                db.outbox_events.insert_one(outbox_doc, session=session)
+
+        return {
+            "status": "success",
+            "message": "Incident deleted and queued for graph removal",
+            "eventId": event_id
         }
     except PyMongoError as e:
         raise HTTPException(status_code=500, detail=str(e))

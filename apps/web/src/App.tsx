@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import DashboardView from './views/DashboardView';
 import InvestigateView from './views/InvestigateView';
 import AnalyticsView from './views/AnalyticsView';
+import IncidentsView from './views/IncidentsView';
 
 const navLinkStyle = ({ isActive }: { isActive: boolean }) => ({
   padding: '8px 16px',
@@ -35,6 +36,7 @@ export default function App() {
           </span>
           <NavLink to="/" end style={navLinkStyle}>Dashboard</NavLink>
           <NavLink to="/investigate" style={navLinkStyle}>Investigate</NavLink>
+          <NavLink to="/incidents" style={navLinkStyle}>Incidents</NavLink>
           <NavLink to="/analytics" style={navLinkStyle}>Analytics</NavLink>
         </nav>
 
@@ -43,6 +45,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<DashboardView />} />
             <Route path="/investigate" element={<InvestigateView />} />
+            <Route path="/incidents" element={<IncidentsView />} />
             <Route path="/analytics" element={<AnalyticsView />} />
           </Routes>
         </main>

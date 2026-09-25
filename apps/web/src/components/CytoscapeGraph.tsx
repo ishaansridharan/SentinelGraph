@@ -28,75 +28,66 @@ const layoutConfig = {
   padding: 40,
 };
 
+// One shape for every node type — identity is carried by color + the legend,
+// never by a zoo of diamonds/triangles/stars.
+const NODE_SHAPE = 'ellipse';
+const NODE_SIZE = 22;
+const HIGHLIGHT = '#8fa3c4';
+
 const buildStylesheet = (showEdgeLabels: boolean) => [
   {
     selector: 'node',
     style: {
+      'shape': NODE_SHAPE,
       'background-color': 'data(color)',
-      'color': '#ffffff',
-      'font-size': '11px',
-      'font-family': 'sans-serif',
-      'font-weight': 'bold',
+      'width': NODE_SIZE,
+      'height': NODE_SIZE,
+      'border-width': 1.5,
+      'border-color': 'data(borderColor)',
+      'border-opacity': 0.9,
+      'color': '#e2e8f0',
+      'font-size': '10px',
+      'font-family': 'system-ui, sans-serif',
+      'font-weight': 500,
       'text-valign': 'bottom',
       'text-halign': 'center',
-      'text-margin-y': 6,
+      'text-margin-y': 5,
       'text-wrap': 'ellipsis',
       'text-max-width': '120px',
       'text-background-color': '#0d0d1a',
       'text-background-opacity': 0.85,
       'text-background-padding': '3px',
       'text-background-shape': 'roundrectangle',
-      'width': 26,
-      'height': 26,
-      'border-width': 2,
-      'border-color': '#1a202c',
     }
-  },
-  {
-    selector: 'node[type="Incident"]',
-    style: { 'background-color': '#e74c3c', 'shape': 'diamond', 'width': 24, 'height': 24 }
-  },
-  {
-    selector: 'node[type="Domain"]',
-    style: { 'background-color': '#3498db', 'shape': 'round-rectangle', 'width': 26, 'height': 26 }
-  },
-  {
-    selector: 'node[type="Malware"]',
-    style: { 'background-color': '#e67e22', 'shape': 'triangle', 'width': 30, 'height': 30 }
-  },
-  {
-    selector: 'node[type="ThreatActor"]',
-    style: { 'background-color': '#9b59b6', 'shape': 'star', 'width': 38, 'height': 38 }
-  },
-  {
-    selector: 'node[type="IPAddress"]',
-    style: { 'background-color': '#2ecc71', 'shape': 'ellipse', 'width': 26, 'height': 26 }
   },
   // Node label only shown when hovered or selected
   {
     selector: 'node.hovered, node:selected',
     style: {
       'label': 'data(label)',
-      'border-width': 3,
-      'border-color': '#f6ad55',
-      'shadow-blur': 12,
-      'shadow-color': '#f6ad55',
-      'shadow-opacity': 0.8,
+      'border-width': 2,
+      'border-color': HIGHLIGHT,
+      'border-opacity': 1,
+      'shadow-blur': 6,
+      'shadow-color': HIGHLIGHT,
+      'shadow-opacity': 0.45,
       'z-index': 9999,
     }
   },
   {
     selector: 'edge',
     style: {
-      'width': 1.5,
-      'line-color': '#4a5568',
-      'target-arrow-color': '#718096',
+      'width': 1,
+      'line-color': '#33334d',
+      'target-arrow-color': '#4a5568',
       'target-arrow-shape': 'triangle',
-      'arrow-scale': 0.8,
+      'arrow-scale': 0.7,
       'label': showEdgeLabels ? 'data(type)' : '',
       'font-size': '8px',
-      'color': '#a0aec0',
+      'font-family': 'system-ui, sans-serif',
+      'color': '#8992a8',
       'curve-style': 'bezier',
+      'opacity': 0.7,
       'text-background-color': '#0d0d1a',
       'text-background-opacity': 0.85,
       'text-background-padding': '2px',
@@ -107,10 +98,11 @@ const buildStylesheet = (showEdgeLabels: boolean) => [
     selector: 'edge.hovered, edge:selected',
     style: {
       'label': 'data(type)',
-      'width': 2.5,
-      'line-color': '#f6ad55',
-      'target-arrow-color': '#f6ad55',
-      'color': '#f6ad55',
+      'width': 1.75,
+      'line-color': HIGHLIGHT,
+      'target-arrow-color': HIGHLIGHT,
+      'color': '#e2e8f0',
+      'opacity': 1,
       'z-index': 9999,
     }
   }

@@ -1,17 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import CytoscapeGraph from '../components/CytoscapeGraph';
 import ContextPanel from '../components/ContextPanel';
+import { NODE_TYPE_COLORS, NODE_TYPE_ORDER, DEFAULT_NODE_COLOR, darken } from '../theme/graphColors';
 
 const API_BASE = 'http://localhost:8000';
-
-// Label colours per node type
-const TYPE_COLORS: Record<string, string> = {
-  Incident:    '#e74c3c',
-  Malware:     '#e67e22',
-  Domain:      '#3498db',
-  IPAddress:   '#2ecc71',
-  ThreatActor: '#9b59b6',
-};
 
 interface RawNode   { [key: string]: unknown }
 interface RawEdge   { [key: string]: unknown }
@@ -25,13 +17,15 @@ function toElements(data: GraphData) {
   const nodes = data.nodes.map((n) => {
     const labels = (n['_labels'] as string[]) ?? [];
     const primaryLabel = labels[0] ?? 'Unknown';
+    const color = NODE_TYPE_COLORS[primaryLabel] ?? DEFAULT_NODE_COLOR;
     return {
       data: {
         ...n,   // spread first so our explicit fields below override API's own 'id'
         id:    safeId(n['_element_id'] ?? n['id'] ?? Math.random()),
         label: String(n['name'] ?? n['value'] ?? n['entityKey'] ?? n['id'] ?? primaryLabel),
         type:  primaryLabel,
-        color: TYPE_COLORS[primaryLabel] ?? '#718096',
+        color,
+        borderColor: darken(color),
       },
     };
   });
@@ -183,9 +177,9 @@ export default function InvestigateView() {
 
       {/* Legend */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {Object.entries(TYPE_COLORS).map(([label, color]) => (
+        {NODE_TYPE_ORDER.map((label) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: NODE_TYPE_COLORS[label] }} />
             <span style={{ fontSize: '12px', color: '#a0aec0' }}>{label}</span>
           </div>
         ))}

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -37,6 +37,18 @@ class IncidentLogSchema(BaseModel):
     raw_payload: Dict[str, Any] = Field(alias="rawPayload")
     extracted_indicators: List[IndicatorSchema] = Field(default_factory=list, alias="extractedIndicators")
     risk: RiskAssessment = Field(default_factory=RiskAssessment)
+
+class IncidentUpdateSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    event_type: Optional[str] = Field(default=None, alias="eventType")
+    observed_at: Optional[datetime] = Field(default=None, alias="observedAt")
+    classification: Optional[str] = None
+    region: Optional[str] = None
+    version: Optional[str] = None
+    raw_payload: Optional[Dict[str, Any]] = Field(default=None, alias="rawPayload")
+    extracted_indicators: Optional[List[IndicatorSchema]] = Field(default=None, alias="extractedIndicators")
+    risk: Optional[RiskAssessment] = None
 
 class OutboxEventSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
