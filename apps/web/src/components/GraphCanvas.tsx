@@ -145,12 +145,14 @@ export interface GraphCanvasProps {
   maxZoom?: number;
   /** Never fit below this zoom; a tall graph opens at the top at this zoom instead and scrolls. */
   minFitZoom?: number;
+  /** Entity keys to frame: the view animates to fit them whenever this set changes */
+  zoomTo?: Set<string> | null;
 }
 
 function Canvas({
   size,
   nodes, edges, centerId, selectedId, onSelect, onExpand, onEdgeSelect, selectedEdgeId, highlight,
-  showCross = true, layout = 'hop', lanes, onOpenLane, minimap = false, labelThreshold = 28, maxZoom = 1.15, minFitZoom = 0,
+  showCross = true, layout = 'hop', lanes, onOpenLane, minimap = false, labelThreshold = 28, maxZoom = 1.15, minFitZoom = 0, zoomTo,
 }: GraphCanvasProps & { size: { w: number; h: number } }) {
   const theme = useTheme();
   const { setViewport } = useReactFlow();
@@ -188,12 +190,12 @@ function Canvas({
   const rfNodes: Node[] = useMemo(() => {
     const background: Node[] = [];
     if (layout === 'lanes' && lanes) {
-      background.push({ id: '__header', type: 'header', position: { x: 0, y: -34 }, data: {}, draggable: false, selectable: false, zIndex: -1 });
+      background.push({ id: '__header', type: 'header', className: 'bg-node', position: { x: 0, y: -34 }, data: {}, draggable: false, selectable: false, focusable: false, zIndex: -1 });
       rects.forEach((r) => {
         const lane = lanes.find((l) => l.id === r.id)!;
         background.push({
-          id: `__lane:${r.id}`, type: 'lane', position: { x: r.x, y: r.y }, data: { lane, rect: r, onOpen: onOpenLane },
-          draggable: false, selectable: false, zIndex: -1,
+          id: `__lane:${r.id}`, type: 'lane', className: 'bg-node', position: { x: r.x, y: r.y }, data: { lane, rect: r, onOpen: onOpenLane },
+          draggable: false, selectable: false, focusable: false, zIndex: -1,
         });
       });
     }
@@ -280,6 +282,29 @@ function Canvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, size.w, size.h, positions, rects]);
 
+  // Frame a chosen set of entities (a story step, a clicked card and its neighbours)
+  const zoomSig = zoomTo ? [...zoomTo].sort().join('|') : '';
+  useEffect(() => {
+    if (!zoomTo || !zoomTo.size || !size.w) return;
+    const ids = nodes.filter((n) => zoomTo.has(n.key)).map((n) => n.id);
+    if (!ids.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    ids.forEach((id) => {
+      const p = positions.get(id);
+      if (!p) return;
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x + NODE_W); maxY = Math.max(maxY, p.y + NODE_H);
+    });
+    const pad = 80;
+    const zoom = Math.min(1.1, (size.w - 2 * pad) / (maxX - minX), (size.h - 2 * pad) / (maxY - minY));
+    setViewport({
+      x: size.w / 2 - ((minX + maxX) / 2) * zoom,
+      y: size.h / 2 - ((minY + maxY) / 2) * zoom,
+      zoom,
+    }, { duration: 450 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomSig]);
+
   const isEntity = (n: Node) => n.type === 'entity';
 
   return (
@@ -289,9 +314,12 @@ function Canvas({
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       colorMode={theme}
-      panOnScroll={!!minFitZoom}
-      minZoom={0.1}
-      maxZoom={2}
+      zoomOnScroll
+      zoomOnPinch
+      panOnDrag
+      zoomOnDoubleClick={false}
+      minZoom={0.08}
+      maxZoom={2.5}
       onNodeClick={(_, n) => isEntity(n) && onSelect?.((n.data as NodeData).node)}
       onNodeDoubleClick={(_, n) => isEntity(n) && onExpand?.((n.data as NodeData).node)}
       onEdgeClick={(_, e) => {

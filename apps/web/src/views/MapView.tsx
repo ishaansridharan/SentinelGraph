@@ -63,11 +63,23 @@ export default function MapView() {
 
   const current = story?.story[step];
   const highlight = useMemo(() => (current?.entityKeys ? new Set(current.entityKeys) : null), [current]);
+  // Zoom to the current story step once the walkthrough has started, or to a clicked card and its neighbours
+  const [zoomTo, setZoomTo] = useState<Set<string> | null>(null);
+  useEffect(() => { if (story && step > 0 && highlight) setZoomTo(highlight); }, [story, step, highlight]);
 
   const selectNode = (n: GNode | null) => {
     setDetails(null);
     if (!n) { setExplain(null); return; }
     setExplain({ kind: 'node', node: n, data: null });
+    if (map) {
+      const near = new Set([n.key]);
+      map.edges.forEach((e) => {
+        const other = e.source === n.id ? e.target : e.target === n.id ? e.source : null;
+        const o = other && map.nodes.find((x) => x.id === other);
+        if (o) near.add(o.key);
+      });
+      setZoomTo(near);
+    }
     api.explainEntity(n.key).then((data) => setExplain({ kind: 'node', node: n, data })).catch(() => {});
   };
   const selectEdge = (e: GEdge) => {
@@ -91,6 +103,7 @@ export default function MapView() {
           ))}
         </div>
         <span className="spacer" />
+        <span className="faint" style={{ fontSize: 12 }}>Scroll to zoom · drag to move</span>
         <span className="legend-inline">
           <span><i className="sw hit" />hit</span>
           <span><i className="sw exposed" />exposed, not hit</span>
@@ -120,6 +133,8 @@ export default function MapView() {
               labelThreshold={0}
               minFitZoom={storyKey ? 0 : 0.62}
               maxZoom={storyKey ? 1 : 0.9}
+              zoomTo={zoomTo}
+              minimap
             />
           )}
           {!explain && !storyKey && map && (

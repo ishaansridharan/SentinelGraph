@@ -68,6 +68,7 @@
 .legend-item .nav-dot { width: 8px; height: 8px; }
 
 /* Campaign map swim-lanes */
+.react-flow__node.bg-node { pointer-events: none !important; cursor: grab; }
 .lane {
   border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 55%, transparent);
   pointer-events: none;
