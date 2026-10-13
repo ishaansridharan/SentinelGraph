@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://localhost:3031';
 
 const EVENT_TYPES = ['phishing_email', 'malware_execution', 'network_scan'];
 const SEVERITIES = ['low', 'medium', 'high', 'critical'];

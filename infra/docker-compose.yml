@@ -1,0 +1,21 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: sentinelgraph-mongo
+    command: ["mongod", "--replSet", "rs0", "--port", "3032", "--bind_ip_all"]
+    ports: ["3032:3032"]
+    volumes: ["sg_mongo:/data/db"]
+  neo4j:
+    image: neo4j:5
+    container_name: sentinelgraph-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_server_bolt_listen__address: ":3033"
+      NEO4J_server_http_listen__address: ":3034"
+      NEO4J_server_bolt_advertised__address: "localhost:3033"
+    ports: ["3033:3033", "3034:3034"]
+    volumes: ["sg_neo4j:/data"]
+volumes:
+  sg_mongo:
+  sg_neo4j:

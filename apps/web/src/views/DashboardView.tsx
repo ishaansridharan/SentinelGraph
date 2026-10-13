@@ -1,115 +1,137 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ShieldAlert, Siren, Sparkles, Waypoints } from 'lucide-react';
+import { api, type AttentionItem, type CaseFile, type Overview } from '../lib/api';
+import { useSchema } from '../lib/schema';
+import { Spinner, timeAgo } from '../components/ui';
+import { PriorityPill } from './CaseView';
 
-const API_BASE = 'http://localhost:8000';
-
-interface Metrics {
-  totalIncidents: number;
-  pendingOutbox: number;
-  graphNodes: number;
-  graphRelationships: number;
-  bySeverity: Record<string, number>;
-  byEventType: Record<string, number>;
-}
-
-const SEVERITY_COLORS: Record<string, string> = {
-  critical: '#e74c3c',
-  high:     '#e67e22',
-  medium:   '#f1c40f',
-  low:      '#2ecc71',
-};
-
-const EVENT_COLORS: Record<string, string> = {
-  phishing_email:    '#9b59b6',
-  malware_execution: '#e74c3c',
-  network_scan:      '#3498db',
-};
-
-function StatCard({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
-  return (
-    <div style={{
-      background: '#1a1a2e',
-      border: `1px solid ${color}33`,
-      borderLeft: `4px solid ${color}`,
-      borderRadius: '8px',
-      padding: '20px 24px',
-    }}>
-      <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        {label}
-      </p>
-      <p style={{ margin: '0 0 4px', fontSize: '32px', fontWeight: 700, color: '#e2e8f0', lineHeight: 1 }}>
-        {value}
-      </p>
-      {sub && <p style={{ margin: 0, fontSize: '12px', color: '#4a5568' }}>{sub}</p>}
-    </div>
-  );
-}
-
-function BreakdownBar({ title, data, colorMap }: { title: string; data: Record<string, number>; colorMap: Record<string, string> }) {
-  const total = Object.values(data).reduce((a, b) => a + b, 0);
-  return (
-    <div style={{ background: '#1a1a2e', border: '1px solid #2a2a4e', borderRadius: '8px', padding: '20px 24px' }}>
-      <h3 style={{ margin: '0 0 16px', color: '#a0aec0', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {title}
-      </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {Object.entries(data).sort((a, b) => b[1] - a[1]).map(([key, count]) => {
-          const pct = total > 0 ? (count / total) * 100 : 0;
-          const color = colorMap[key] ?? '#718096';
-          return (
-            <div key={key}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ fontSize: '13px', color: '#e2e8f0' }}>{key}</span>
-                <span style={{ fontSize: '13px', color: '#718096' }}>{count}</span>
-              </div>
-              <div style={{ background: '#2d3748', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '4px', transition: 'width 0.5s ease' }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+const KIND = {
+  attribution: { label: 'Suggested attribution', icon: Sparkles, color: 'var(--accent)' },
+  exposure: { label: "Who's next", icon: ShieldAlert, color: 'var(--warning)' },
+  overlap: { label: 'Shared infrastructure', icon: Waypoints, color: 'var(--c-Campaign)' },
+  critical: { label: 'Critical and still open', icon: Siren, color: 'var(--critical)' },
+} as const;
 
 export default function DashboardView() {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { version } = useSchema();
+  const [ov, setOv] = useState<Overview | null>(null);
+  const [cases, setCases] = useState<CaseFile[] | null>(null);
+  const [items, setItems] = useState<AttentionItem[]>([]);
+  const [showAllCritical, setShowAllCritical] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/v1/metrics`)
-      .then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
-      .then(setMetrics)
-      .catch((e) => setError(e.message));
-  }, []);
+    api.overview().then(setOv).catch(() => {});
+    api.cases().then(setCases).catch(() => setCases([]));
+    api.attention().then(setItems).catch(() => {});
+  }, [version]);
+
+  const k = ov?.kpis;
+  const open = (item: AttentionItem) => {
+    if (item.kind === 'overlap') return navigate(`/map?campaigns=${item.entityKeys.filter((x) => x.startsWith('CMP-')).join(',')}`);
+    if (item.path) return navigate(`/investigate?mode=path&from=${encodeURIComponent(item.path[0])}&to=${encodeURIComponent(item.path[1])}`);
+    navigate(`/explore?focus=${encodeURIComponent(item.focus)}`);
+  };
+  const groups = (Object.keys(KIND) as (keyof typeof KIND)[]).map((kind) => ({ kind, list: items.filter((i) => i.kind === kind) }));
 
   return (
-    <div style={{ padding: '24px' }}>
-      <h2 style={{ margin: '0 0 24px', color: '#e2e8f0' }}>Overview</h2>
-
-      {error && (
-        <div style={{ padding: '12px 16px', background: '#742a2a', borderRadius: '6px', color: '#fed7d7', marginBottom: '20px', fontSize: '14px' }}>
-          Failed to load metrics: {error}
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Threat overview</h1>
+          <p className="page-sub">Three active campaigns are hitting Indian banks, hospitals and a software supply chain. Two of them share infrastructure.</p>
         </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <StatCard label="Total Incidents"     value={metrics?.totalIncidents   ?? '…'} color="#e74c3c" />
-        <StatCard label="Outbox Lag (Pending)"value={metrics?.pendingOutbox    ?? '…'} color="#f39c12" sub="events awaiting processing" />
-        <StatCard label="Graph Nodes"         value={metrics?.graphNodes       ?? '…'} color="#3498db" />
-        <StatCard label="Graph Relationships" value={metrics?.graphRelationships ?? '…'} color="#2ecc71" />
       </div>
 
-      {metrics && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <BreakdownBar title="Incidents by Severity"   data={metrics.bySeverity}  colorMap={SEVERITY_COLORS} />
-          <BreakdownBar title="Incidents by Event Type" data={metrics.byEventType} colorMap={EVENT_COLORS} />
+      <div className="kpi-strip" style={{ marginBottom: 20 }}>
+        <div><span className="kpi-num">{k?.activeCampaigns ?? '—'}</span><span className="kpi-label">active campaigns</span></div>
+        <div>
+          <span className="kpi-num">{k?.openIncidents ?? '—'}</span>
+          <span className="kpi-label">open incidents{k ? <> · <span style={{ color: 'var(--critical)' }}>{k.criticalOpen} critical</span></> : null}</span>
         </div>
-      )}
+        <div><span className="kpi-num">{k?.orgsAffected ?? '—'}</span><span className="kpi-label">organizations hit</span></div>
+        <div><span className="kpi-num" style={{ color: k?.exposedNotHit ? 'var(--warning)' : undefined }}>{k?.exposedNotHit ?? '—'}</span><span className="kpi-label">exposed, not hit yet</span></div>
+        <div><span className="kpi-num" style={{ color: k?.unattributed ? 'var(--accent)' : undefined }}>{k?.unattributed ?? '—'}</span><span className="kpi-label">incidents to attribute</span></div>
+      </div>
 
-      {!metrics && !error && (
-        <div style={{ color: '#4a5568', fontSize: '14px' }}>Loading metrics…</div>
-      )}
+      <div className="grid-overview">
+        <div>
+          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+            <h3 className="card-title" style={{ fontSize: 14 }}>Cases</h3>
+            <span className="muted" style={{ fontSize: 12 }}>stored in MongoDB · <span className="mono">cases</span></span>
+          </div>
+          {!cases && <div className="empty"><Spinner /></div>}
+          <div className="stack" style={{ gap: 10 }}>
+            {cases?.map((c) => (
+              <div key={c.id} className="card case-card" onClick={() => navigate(`/cases/${c.id}`)} role="link">
+                <div className="row" style={{ gap: 8 }}>
+                  <PriorityPill p={c.priority} />
+                  <span style={{ fontWeight: 600, fontSize: 14.5 }} className="ellipsis">{c.title}</span>
+                  <span className="spacer" />
+                  <span className="faint" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{c.status === 'open' ? 'Open' : c.status === 'monitoring' ? 'Monitoring' : 'Closed'} · {c.owner}</span>
+                </div>
+                <div className="case-summary">{c.summary}</div>
+                <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  {c.campaigns.map((cp) => (
+                    <span key={cp.key} className="chip" style={{ height: 22, fontSize: 11.5 }}>
+                      <span className="nav-dot" style={{ background: 'var(--c-Campaign)', width: 7, height: 7 }} />{cp.name}
+                      {cp.actor && <span className="faint">· {cp.actor}</span>}
+                    </span>
+                  ))}
+                  <span className="spacer" />
+                  {c.stats && (
+                    <span className="mini-stats">
+                      <span><strong>{c.stats.victims}</strong> hit</span>
+                      <span><strong>{c.stats.open}</strong> open</span>
+                      {c.stats.critical > 0 && <span style={{ color: 'var(--critical)' }}><strong style={{ color: 'inherit' }}>{c.stats.critical}</strong> critical</span>}
+                      {c.stats.exposedNotHit > 0 && <span style={{ color: 'var(--warning)' }}><strong style={{ color: 'inherit' }}>{c.stats.exposedNotHit}</strong> exposed</span>}
+                      {c.stats.lastActivity && <span>last activity {timeAgo(c.stats.lastActivity)}</span>}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card" style={{ alignSelf: 'start' }}>
+          <div className="card-head">
+            <div>
+              <h3 className="card-title">Needs attention</h3>
+              <p className="card-sub">Found by following relationships in the graph</p>
+            </div>
+          </div>
+          <div style={{ padding: '4px 4px 8px' }}>
+            {groups.map(({ kind, list }) => {
+              if (!list.length) return null;
+              const meta = KIND[kind];
+              const Icon = meta.icon;
+              const shown = kind === 'critical' && !showAllCritical ? list.slice(0, 3) : list;
+              return (
+                <div key={kind}>
+                  <div className="attn-group">{meta.label} · {list.length}</div>
+                  {shown.map((i, n) => (
+                    <button key={n} className="attn" onClick={() => open(i)}>
+                      <span className="attn-icon" style={{ ['--ac' as string]: meta.color }}><Icon size={15} /></span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>{i.title}</span>
+                        <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>{i.detail}</span>
+                      </span>
+                    </button>
+                  ))}
+                  {kind === 'critical' && list.length > 3 && (
+                    <button className="btn ghost sm" style={{ margin: '0 8px' }} onClick={() => setShowAllCritical((v) => !v)}>
+                      {showAllCritical ? 'Show fewer' : `Show ${list.length - 3} more`}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

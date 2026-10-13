@@ -1,184 +1,99 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+/* Graph canvas: LangGraph-style cards on a dot grid */
+:root {
+  --edge: #4a4a52;
+  --edge-cross: #34343a;
+  --minimap-mask: rgba(13, 13, 14, 0.6);
+}
+:root[data-theme='light'] {
+  --edge: #b4b4bb;
+  --edge-cross: #d6d6db;
+  --minimap-mask: rgba(250, 250, 250, 0.6);
 }
 
-.hero {
-  position: relative;
+.graph-canvas { position: relative; width: 100%; height: 100%; background: var(--canvas); }
+.graph-canvas .react-flow { background: transparent; --xy-background-color: transparent; }
 
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+.gnode {
+  display: flex; align-items: center; gap: 10px; padding: 0 12px 0 10px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border-strong); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  cursor: pointer; position: relative; transition: border-color .15s, box-shadow .15s, opacity .15s;
 }
-
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+.gnode:hover { border-color: color-mix(in srgb, var(--ec) 70%, transparent); }
+.gnode.center {
+  border-color: var(--ec);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ec) 18%, transparent), 0 6px 20px rgba(0, 0, 0, 0.25);
 }
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
+.gnode.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.gnode.dim { opacity: 0.32; }
+.gnode-text { min-width: 0; flex: 1; }
+.gnode-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.gnode-sub { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; min-width: 0; }
+.gnode-sub .sev::before { width: 6px; height: 6px; }
+.gnode-deg {
+  position: absolute; top: -8px; right: 10px; font-size: 10px; font-family: var(--mono); color: var(--muted);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0 5px; line-height: 15px;
 }
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+.gnode-expand {
+  position: absolute; right: -11px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); display: none;
+  place-items: center; cursor: pointer; padding: 0; z-index: 2;
 }
+.gnode:hover .gnode-expand { display: grid; }
+.gnode-expand:hover { color: var(--text); border-color: var(--accent); }
+.gnode .react-flow__handle { opacity: 0; width: 6px; height: 6px; min-width: 0; min-height: 0; border: none; pointer-events: none; }
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
+.gedge-label {
+  position: absolute; pointer-events: none; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.02em;
+  color: var(--muted); background: var(--canvas); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px;
+  white-space: nowrap;
 }
+.gedge-label.hi { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--surface); }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
+.graph-canvas .react-flow__controls { box-shadow: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.graph-canvas .react-flow__controls-button { background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text-2); width: 28px; height: 28px; }
+.graph-canvas .react-flow__controls-button:hover { background: var(--surface-3); }
+.graph-canvas .react-flow__controls-button svg { fill: currentColor; }
+.graph-canvas .react-flow__attribution { background: transparent; font-size: 9px; opacity: 0.6; }
+.graph-canvas .react-flow__attribution a { color: var(--faint); }
+.graph-canvas .react-flow__minimap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+
+/* Floating chrome over the canvas */
+.canvas-overlay { position: absolute; z-index: 5; display: flex; gap: 8px; align-items: center; }
+.canvas-overlay.tl { top: 12px; left: 12px; }
+.canvas-overlay.tr { top: 12px; right: 12px; }
+.canvas-overlay.bl { bottom: 12px; left: 52px; }
+.glass {
+  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
 }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 10px; font-size: 11.5px; color: var(--text-2); }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-item .nav-dot { width: 8px; height: 8px; }
 
-.ticks {
-  position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+/* Campaign map swim-lanes */
+.lane {
+  border-radius: 16px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 55%, transparent);
+  pointer-events: none;
 }
+.lane-shared {
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.lane-head { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px 0; }
+.lane-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.lane-shared .lane-title { color: var(--accent); }
+.lane-sub { font-size: 11.5px; color: var(--muted); }
+.lane-open {
+  margin-left: auto; pointer-events: all; cursor: pointer; font-size: 11.5px; color: var(--text-2);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 2px 8px;
+}
+.lane-open:hover { color: var(--text); border-color: var(--border-strong); }
+.lane-columns { position: relative; width: 1px; height: 20px; pointer-events: none; }
+.lane-columns span {
+  position: absolute; top: 0; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint);
+  font-weight: 600; text-align: center;
+}
+.gnode.exposed { border-style: dashed; border-color: color-mix(in srgb, var(--warning) 70%, transparent); }
+.gnode-sub.badge-warning { color: var(--warning); }
+.gnode-sub.badge-critical { color: var(--text-2); }
+.sev.warning { --sev: var(--warning); }
