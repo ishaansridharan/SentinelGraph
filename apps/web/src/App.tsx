@@ -19,7 +19,7 @@ import CaseView, { PriorityPill } from './views/CaseView';
 
 const NAV = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/map', label: 'Campaign map', icon: MapIcon },
+  { to: '/map', label: 'Attack map', icon: MapIcon },
   { to: '/investigate', label: 'Investigate', icon: Crosshair },
   { to: '/explore', label: 'Graph explorer', icon: Waypoints },
   { to: '/query', label: 'Query lab', icon: SquareTerminal },
@@ -38,10 +38,7 @@ function Sidebar() {
             <path d="M7 7l3.6 9M17 7l-3.6 9M7.2 6h9.6" />
           </svg>
         </div>
-        <div>
-          <div className="brand-name">SentinelGraph</div>
-          <div className="brand-sub">Threat intelligence graph</div>
-        </div>
+        <div className="brand-name">SentinelGraph</div>
       </div>
       {NAV.map(({ to, label, icon: Icon, end }) => (
         <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
@@ -51,7 +48,7 @@ function Sidebar() {
       <div className="nav-section">Cases</div>
       {cases.map((c) => (
         <NavLink key={c.id} to={`/cases/${c.id}`} className={({ isActive }) => `nav-item nav-case${isActive ? ' active' : ''}`}>
-          <span className="t">{c.title.split(':')[0]}</span>
+          <span className="t">{c.title}</span>
           <span className="row" style={{ gap: 6 }}>
             <PriorityPill p={c.priority} />
             <span className="faint" style={{ fontSize: 11 }}>{c.stats?.open ?? 0} open · {c.owner.split(' ')[0]}</span>
@@ -131,7 +128,7 @@ function GlobalSearch() {
         <input
           ref={input}
           value={text}
-          placeholder="Search by IP, domain, CVE, actor, incident…  e.g. 198.51.100.42 or DarkLoader"
+          placeholder="Search IPs, domains, CVEs, groups, incidents…"
           onFocus={() => setOpen(true)}
           onChange={(e) => { setText(e.target.value); setSel(0); setOpen(true); }}
           onKeyDown={(e) => {
@@ -154,7 +151,7 @@ function GlobalSearch() {
 }
 
 const TITLES: Record<string, string> = {
-  '': 'Overview', map: 'Campaign map', cases: 'Case', explore: 'Graph explorer', investigate: 'Investigate', query: 'Query lab',
+  '': 'Overview', map: 'Attack map', cases: 'Case', explore: 'Graph explorer', investigate: 'Investigate', query: 'Query lab',
   analytics: 'Graph analytics', entities: 'Data',
 };
 
@@ -170,14 +167,10 @@ function TopBar() {
       <span className="topbar-title">{TITLES[seg] ?? ''}</span>
       {sub && <span className="topbar-crumb">/ {sub}</span>}
       <GlobalSearch />
-      <button className="btn sm" onClick={() => setCreating(true)}><Plus size={14} /> New entity</button>
+      <button className="btn ghost sm" onClick={() => setCreating(true)}><Plus size={14} /> New record</button>
       <button className="btn ghost icon sm" title="Toggle theme" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </button>
-      <div className="row" style={{ gap: 8, paddingLeft: 4 }}>
-        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--surface-3)', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 600 }}>A</div>
-        <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Analyst</span>
-      </div>
       {creating && (
         <EntityForm
           onClose={() => setCreating(false)}

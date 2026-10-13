@@ -212,9 +212,9 @@ function ImpactList({ title, items, onPick, more = 0 }: { title: string; items: 
 }
 
 const PRESETS = [
-  { from: 'TA-CRIMSONFOX', to: 'ORG-LAKEVIEW-MEDICAL-CENTRE', text: 'Bank phishers → hospital?' },
-  { from: 'INC-2701', to: 'TA-BLACKLOTUS', text: 'Who is behind INC-2701?' },
-  { from: 'ORG-LEDGERSOFT', to: 'ORG-HELIX-UNIVERSITY', text: 'Vendor → university' },
+  { from: 'TA-TG-1104', to: 'ORG-PERIYAR-MEDICAL-CENTRE', text: 'Fraud ring → hospital?' },
+  { from: 'INC-2701', to: 'TA-TG-3310', text: 'Who is behind INC-2701?' },
+  { from: 'ORG-LEKHASOFT', to: 'ORG-BHARAT-AEROSTRUCTURES', text: 'Vendor → defence firm' },
 ];
 
 function PathPanel() {

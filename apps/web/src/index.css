@@ -143,7 +143,7 @@ code, pre, .mono { font-family: var(--mono); font-variant-ligatures: none; }
   flex: 1; max-width: 640px; margin: 0 auto; position: relative;
 }
 .search-box {
-  display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 12px; border-radius: 10px;
+  display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border-radius: 8px;
   background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); cursor: text;
 }
 .search-box:focus-within { border-color: var(--border-strong); background: var(--surface); }
@@ -155,7 +155,7 @@ code, pre, .mono { font-family: var(--mono); font-variant-ligatures: none; }
 }
 .dropdown {
   position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50; background: var(--surface);
-  border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; max-height: 420px; overflow-y: auto;
+  border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; max-height: 420px; overflow-y: auto;
 }
 .dropdown-item {
   display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; width: 100%;
@@ -165,7 +165,7 @@ code, pre, .mono { font-family: var(--mono); font-variant-ligatures: none; }
 .dropdown-empty { padding: 14px; color: var(--muted); font-size: 13px; text-align: center; }
 
 /* ------------------------------------------------------------------ cards */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 0; }
 .card-title { font-size: 13.5px; font-weight: 600; margin: 0; }
 .card-sub { font-size: 12.5px; color: var(--muted); margin: 2px 0 0; }
@@ -192,7 +192,7 @@ code, pre, .mono { font-family: var(--mono); font-variant-ligatures: none; }
 /* ------------------------------------------------------------- primitives */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 32px; padding: 0 12px;
-  border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
   font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s;
 }
 .btn:hover { background: var(--surface-3); }
@@ -240,7 +240,7 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text); }
 .tab:hover { color: var(--text); }
 .tab.on { background: var(--surface); color: var(--text); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.15); border: 1px solid var(--border); }
 
-.ent-icon { display: grid; place-items: center; flex-shrink: 0; border-radius: 8px; color: var(--ec); background: color-mix(in srgb, var(--ec) 15%, transparent); }
+.ent-icon { display: grid; place-items: center; flex-shrink: 0; border-radius: 6px; color: var(--ec); border: 1px solid var(--border); background: transparent; }
 .row-link { cursor: pointer; }
 .muted { color: var(--muted); }
 .faint { color: var(--faint); }
@@ -278,7 +278,7 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text); }
 
 /* ------------------------------------------------------------------ modal */
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); z-index: 100; display: grid; place-items: center; padding: 20px; }
-.modal { width: 100%; max-width: 560px; max-height: calc(100vh - 40px); overflow: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; box-shadow: var(--shadow); }
+.modal { width: 100%; max-width: 560px; max-height: calc(100vh - 40px); overflow: auto; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow); }
 .modal-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
 .modal-title { font-size: 15px; font-weight: 600; margin: 0; }
 .modal-body { padding: 18px; }
@@ -313,7 +313,7 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text); }
 .prio-P1 { color: var(--critical); background: color-mix(in srgb, var(--critical) 14%, transparent); }
 .prio-P2 { color: var(--serious); background: color-mix(in srgb, var(--serious) 14%, transparent); }
 .prio-P3 { color: var(--muted); background: var(--surface-3); }
-.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .kpi-strip > div { padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--border); }
 .kpi-strip > div:last-child { border-right: none; }
 .kpi-strip a, .kpi-strip button { all: unset; cursor: pointer; display: contents; }
@@ -343,3 +343,5 @@ button.chip:hover { border-color: var(--border-strong); color: var(--text); }
 .nav-case { display: flex; flex-direction: column; gap: 1px; align-items: flex-start; padding: 7px 10px; }
 .nav-case .t { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 .nav-item.active .t, .nav-case:hover .t { color: var(--text); }
+.attn-mark { width: 3px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
+.brand { padding: 6px 8px 18px; }

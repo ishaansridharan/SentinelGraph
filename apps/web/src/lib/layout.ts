@@ -78,7 +78,7 @@ export function layoutDagre(nodes: GNode[], edges: GEdge[], rankdir: 'LR' | 'TB'
 }
 
 export const LANE_COLUMNS = ['Actor', 'Campaign', 'Tools & CVEs', 'Domains', 'IPs & registrants', 'Victims'];
-const COL_STEP = NODE_W + 64;
+const COL_STEP = NODE_W + 46;
 const ROW_STEP = NODE_H + 14;
 const LANE_HEAD = 46;
 const LANE_PAD = 18;
@@ -96,7 +96,7 @@ const ORG_ORDER: Record<string, number> = { hit: 0, targeted: 1, exposed: 2 };
 export function layoutLanes(nodes: GNode[], laneIds: string[]): { positions: Positions; rects: LaneRect[] } {
   const positions: Positions = new Map();
   const rects: LaneRect[] = [];
-  const width = LANE_COLUMNS.length * COL_STEP - 64 + LANE_PAD * 2;
+  const width = LANE_COLUMNS.length * COL_STEP - 46 + LANE_PAD * 2;
   let y = 0;
   for (const lid of laneIds) {
     const inLane = nodes.filter((n) => n.lane === lid);

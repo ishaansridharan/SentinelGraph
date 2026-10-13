@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, Siren, Sparkles, Waypoints } from 'lucide-react';
 import { api, type AttentionItem, type CaseFile, type Overview } from '../lib/api';
 import { useSchema } from '../lib/schema';
 import { Spinner, timeAgo } from '../components/ui';
 import { PriorityPill } from './CaseView';
 
 const KIND = {
-  attribution: { label: 'Suggested attribution', icon: Sparkles, color: 'var(--accent)' },
-  exposure: { label: "Who's next", icon: ShieldAlert, color: 'var(--warning)' },
-  overlap: { label: 'Shared infrastructure', icon: Waypoints, color: 'var(--c-Campaign)' },
-  critical: { label: 'Critical and still open', icon: Siren, color: 'var(--critical)' },
+  attribution: { label: 'Unassigned incidents', color: 'var(--accent)' },
+  exposure: { label: 'Could be next', color: 'var(--warning)' },
+  overlap: { label: 'Shared infrastructure', color: 'var(--c-Campaign)' },
+  critical: { label: 'Critical and still open', color: 'var(--critical)' },
 } as const;
 
 export default function DashboardView() {
@@ -40,7 +39,7 @@ export default function DashboardView() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Threat overview</h1>
-          <p className="page-sub">Three active campaigns are hitting Indian banks, hospitals and a software supply chain. Two of them share infrastructure.</p>
+          <p className="page-sub">Three active campaigns against Indian banks, hospitals and a payroll software supplier. Two of them share servers.</p>
         </div>
       </div>
 
@@ -59,7 +58,6 @@ export default function DashboardView() {
         <div>
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
             <h3 className="card-title" style={{ fontSize: 14 }}>Cases</h3>
-            <span className="muted" style={{ fontSize: 12 }}>stored in MongoDB · <span className="mono">cases</span></span>
           </div>
           {!cases && <div className="empty"><Spinner /></div>}
           <div className="stack" style={{ gap: 10 }}>
@@ -99,21 +97,19 @@ export default function DashboardView() {
           <div className="card-head">
             <div>
               <h3 className="card-title">Needs attention</h3>
-              <p className="card-sub">Found by following relationships in the graph</p>
             </div>
           </div>
           <div style={{ padding: '4px 4px 8px' }}>
             {groups.map(({ kind, list }) => {
               if (!list.length) return null;
               const meta = KIND[kind];
-              const Icon = meta.icon;
               const shown = kind === 'critical' && !showAllCritical ? list.slice(0, 3) : list;
               return (
                 <div key={kind}>
                   <div className="attn-group">{meta.label} · {list.length}</div>
                   {shown.map((i, n) => (
                     <button key={n} className="attn" onClick={() => open(i)}>
-                      <span className="attn-icon" style={{ ['--ac' as string]: meta.color }}><Icon size={15} /></span>
+                      <span className="attn-mark" style={{ background: meta.color }} />
                       <span style={{ minWidth: 0 }}>
                         <span style={{ display: 'block', fontSize: 13, fontWeight: 500 }}>{i.title}</span>
                         <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>{i.detail}</span>

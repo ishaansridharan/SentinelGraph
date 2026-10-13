@@ -115,9 +115,9 @@ export default function CaseView() {
             <div className="card-head" style={{ paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
               <div>
                 <h3 className="card-title">How the campaign fits together</h3>
-                <p className="card-sub">Actor → campaign → tools → infrastructure → victims. Click any card for its details.</p>
+                <p className="card-sub">Read left to right: group, campaign, tools, websites and servers, victims.</p>
               </div>
-              <button className="btn sm ghost" onClick={() => navigate(`/map?campaigns=${c.campaignIds.join(',')}`)}><Maximize2 size={14} /> Full map</button>
+              <button className="btn sm" onClick={() => navigate(`/map?story=${c.campaignIds[0]}`)}><Maximize2 size={14} /> Walk through the attack</button>
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
               {map ? (

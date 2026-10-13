@@ -14,25 +14,23 @@
 .graph-canvas .react-flow { background: transparent; --xy-background-color: transparent; }
 
 .gnode {
-  display: flex; align-items: center; gap: 10px; padding: 0 12px 0 10px; border-radius: 12px;
-  background: var(--surface); border: 1px solid var(--border-strong); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-  cursor: pointer; position: relative; transition: border-color .15s, box-shadow .15s, opacity .15s;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0 12px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-left: 3px solid var(--ec);
+  cursor: pointer; position: relative; transition: border-color .15s, box-shadow .15s, opacity .2s;
 }
-.gnode:hover { border-color: color-mix(in srgb, var(--ec) 70%, transparent); }
-.gnode.center {
-  border-color: var(--ec);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ec) 18%, transparent), 0 6px 20px rgba(0, 0, 0, 0.25);
-}
-.gnode.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.gnode.dim { opacity: 0.32; }
-.gnode-text { min-width: 0; flex: 1; }
-.gnode-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-.gnode-sub { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; min-width: 0; }
-.gnode-sub .sev::before { width: 6px; height: 6px; }
-.gnode-deg {
-  position: absolute; top: -8px; right: 10px; font-size: 10px; font-family: var(--mono); color: var(--muted);
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0 5px; line-height: 15px;
-}
+.gnode:hover { box-shadow: 0 0 0 1px var(--border-strong), 0 4px 14px rgba(0, 0, 0, 0.18); }
+.gnode.center { box-shadow: 0 0 0 1px var(--ec), 0 6px 18px rgba(0, 0, 0, 0.22); }
+.gnode.selected { box-shadow: 0 0 0 1.5px var(--accent); }
+.gnode.dim { opacity: 0.38; }
+.gnode-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.gnode-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ec); flex-shrink: 0; display: none; }
+.gnode-type { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.gnode-badge { margin-left: auto; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
+.gnode-badge.tone-critical { color: var(--critical); }
+.gnode-badge.tone-high { color: var(--serious); }
+.gnode-badge.tone-medium, .gnode-badge.tone-warning { color: var(--warning); }
+.gnode-badge.tone-low { color: var(--good); }
+.gnode-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
 .gnode-expand {
   position: absolute; right: -11px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 50%;
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); display: none;
@@ -44,10 +42,9 @@
 
 .gedge-label {
   position: absolute; pointer-events: none; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.02em;
-  color: var(--muted); background: var(--canvas); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px;
-  white-space: nowrap;
+  color: var(--muted); background: var(--canvas); padding: 0 4px; border-radius: 3px; white-space: nowrap;
 }
-.gedge-label.hi { color: var(--text); border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--surface); }
+.gedge-label.hi { color: var(--accent); background: var(--canvas); }
 
 .graph-canvas .react-flow__controls { box-shadow: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .graph-canvas .react-flow__controls-button { background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text-2); width: 28px; height: 28px; }
@@ -72,7 +69,7 @@
 
 /* Campaign map swim-lanes */
 .lane {
-  border-radius: 16px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 55%, transparent);
+  border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 55%, transparent);
   pointer-events: none;
 }
 .lane-shared {
@@ -93,7 +90,50 @@
   position: absolute; top: 0; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint);
   font-weight: 600; text-align: center;
 }
-.gnode.exposed { border-style: dashed; border-color: color-mix(in srgb, var(--warning) 70%, transparent); }
+.gnode.exposed { border-style: dashed; border-left-style: solid; border-color: color-mix(in srgb, var(--warning) 60%, transparent); border-left-color: var(--ec); }
 .gnode-sub.badge-warning { color: var(--warning); }
 .gnode-sub.badge-critical { color: var(--text-2); }
 .sev.warning { --sev: var(--warning); }
+
+.graph-canvas .react-flow__edge.selectable { cursor: pointer; }
+
+/* Story map */
+.story-map { display: flex; flex-direction: column; height: 100%; }
+.story-bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 7px; overflow: hidden; }
+.seg button { border: none; background: transparent; color: var(--text-2); font-size: 12.5px; padding: 5px 11px; cursor: pointer; border-right: 1px solid var(--border); }
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--text); background: var(--hover); }
+.seg button.on { background: var(--active); color: var(--text); font-weight: 500; }
+.legend-inline { display: inline-flex; gap: 14px; font-size: 12px; color: var(--muted); }
+.legend-inline span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-inline .sw { width: 14px; height: 9px; border-radius: 2px; display: inline-block; }
+.legend-inline .sw.hit { background: var(--critical); }
+.legend-inline .sw.exposed { border: 1.5px dashed var(--warning); }
+.legend-inline .sw.shared { border: 1.5px dashed var(--accent); }
+.story-body { flex: 1; display: flex; min-height: 0; }
+.story-canvas { flex: 1; position: relative; min-width: 0; }
+.story-panel { width: 380px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+.panel-scroll { padding: 18px 18px 28px; overflow-y: auto; flex: 1; }
+.eyebrow { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+.panel-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin: 3px 0 4px; text-transform: none; }
+.panel-text { color: var(--text-2); font-size: 13.5px; line-height: 1.6; margin: 10px 0 14px; }
+.steps-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); font-weight: 600; margin: 6px 0 8px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.steps li { display: flex; gap: 12px; padding: 9px 8px; border-radius: 7px; cursor: pointer; position: relative; }
+.steps li:hover { background: var(--hover); }
+.steps li.on { background: var(--active); }
+.step-n { width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border-strong); display: grid; place-items: center; font-size: 11px; color: var(--muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.steps li.on .step-n { background: var(--accent); border-color: var(--accent); color: #fff; }
+.step-stage { font-size: 11px; color: var(--muted); }
+.step-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.step-text { font-size: 12.5px; color: var(--text-2); line-height: 1.55; margin-top: 4px; }
+.step-ref { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: transparent; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+.step-ref:hover { border-color: var(--border-strong); background: var(--hover); }
+.callout { margin-top: 16px; padding: 12px 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
+.rel-ends { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 500; margin-top: 6px; }
+.rel-ends span { display: inline-flex; align-items: center; gap: 6px; }
+.rel-ends i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.canvas-hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); font-size: 12.5px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; pointer-events: none; }
+body.focus-mode .sidebar, body.focus-mode .topbar { display: none; }
+.gnode-badge.solo { margin-left: 0; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; }

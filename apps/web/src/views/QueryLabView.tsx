@@ -44,7 +44,7 @@ JOIN threat_actors a ON a.id = c.actor_id;`,
   {
     id: 'overlap',
     title: 'Attribution: campaigns sharing infrastructure',
-    description: 'Two campaigns whose tools talk to the same server. Here it exposes CrimsonFox selling bank access to BlackLotus.',
+    description: 'Two campaigns whose tools talk to the same server. Here it exposes the fraud ring (TG-1104) selling bank access to the ransomware group (TG-3310).',
     hops: '3 + 3 hops',
     cypher: `MATCH p1 = (c1:Campaign)-[:USES]->(:Malware)-[:CONTACTS]->(shared:Indicator)
 MATCH p2 = (c2:Campaign)-[:USES]->(:Malware)-[:CONTACTS]->(shared)
@@ -95,9 +95,9 @@ WHERE c.status = 'active'
   {
     id: 'supply',
     title: 'Supply chain: one vendor, many victims',
-    description: "LedgerSoft's customers and what the poisoned update did to each of them.",
+    description: "LekhaSoft's customers and what the poisoned update did to each of them.",
     hops: '1 + 2 hops',
-    cypher: `MATCH p = (:Organization {name: 'LedgerSoft'})-[:SUPPLIES]->(customer:Organization)
+    cypher: `MATCH p = (:Organization {name: 'LekhaSoft'})-[:SUPPLIES]->(customer:Organization)
 OPTIONAL MATCH q = (customer)<-[:AFFECTED]-(:Incident)-[:INVOLVED]->(:Malware)
 RETURN p, q`,
     sql: `SELECT cu.name, i.title, m.name
@@ -110,7 +110,7 @@ LEFT JOIN incidents i ON i.id = io.incident_id
 LEFT JOIN incident_malware im
   ON im.incident_id = i.id
 LEFT JOIN malware m ON m.id = im.malware_id
-WHERE v.name = 'LedgerSoft';`,
+WHERE v.name = 'LekhaSoft';`,
   },
   {
     id: 'triage',
@@ -126,10 +126,10 @@ RETURN p`,
   },
   {
     id: 'killchain',
-    title: 'Actor to victim: APT-Saffron',
+    title: 'Group to victim: TG-2207',
     description: 'From the actor through its campaign, tools and C2 servers to the incidents and organizations where they showed up.',
     hops: '4 + 2 hops',
-    cypher: `MATCH p = (:ThreatActor {name: 'APT-Saffron'})-[:RUNS]->(:Campaign)
+    cypher: `MATCH p = (:ThreatActor {name: 'TG-2207'})-[:RUNS]->(:Campaign)
           -[:USES]->(:Malware)-[:CONTACTS]->(ind:Indicator)
 OPTIONAL MATCH q = (ind)<-[:OBSERVED]-(:Incident)-[:AFFECTED]->(:Organization)
 RETURN p, q`,

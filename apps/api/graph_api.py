@@ -549,9 +549,10 @@ def campaign_map(campaigns: Optional[str] = None):
     # Lane per campaign; entities in more than one campaign get a shared lane
     lanes: Dict[str, Dict[str, Any]] = {}
     for cid, c in camps.items():
-        actor = next((nodes[a]["name"] for a in in_by.get((cid, "RUNS"), [])), None)
+        actor = next((nodes[a] for a in in_by.get((cid, "RUNS"), [])), None)
+        who = f"{actor['name']} · {(actor.get('aliases') or [''])[0]}" if actor else ""
         lanes[cid] = {"id": c["entityKey"], "kind": "campaign", "title": c["name"],
-                      "subtitle": f"{actor} · {c.get('status', '')}" if actor else c.get("status", ""),
+                      "subtitle": f"{who} · {c.get('status', '')}" if actor else c.get("status", ""),
                       "campaigns": [c["entityKey"]], "status": c.get("status")}
     lane_of: Dict[str, str] = {}
     for nid, cs in member.items():
@@ -689,9 +690,9 @@ def attention():
                 org = next(iter(out_by.get((nid, "AFFECTED"), [])), None)
                 items.append({
                     "kind": "attribution", "severity": n.get("severity"),
-                    "title": f"{n['name']} looks like {' or '.join(name(c) for c in cs)}",
-                    "detail": f"{n.get('title')} at {name(org) if org else '?'} observed {name(ind)}, "
-                              f"which is {'shared ' if len(cs) > 1 else ''}{' / '.join(name(c) for c in cs)} infrastructure.",
+                    "title": f"{n['name']} probably belongs to {' or '.join(name(c) for c in cs)}",
+                    "detail": f"{n.get('title')} ({name(org) if org else '?'}). It involved {name(ind)}, "
+                              f"a server already seen in {' and '.join(name(c) for c in cs)}.",
                     "entityKeys": [n["entityKey"], key(ind)] + [key(c) for c in cs],
                     "focus": n["entityKey"], "path": [n["entityKey"], key(cs[0])]})
                 break
@@ -708,9 +709,9 @@ def attention():
                           and nodes[i].get("status") in OPEN_STATUSES]
             items.append({
                 "kind": "exposure", "severity": "high" if suspicious else "medium",
-                "title": f"{name(o)} is exposed to {name(cid)}",
-                "detail": f"Runs a product vulnerable to {name(cve)}, which {name(cid)} is actively exploiting."
-                          + (" Already showing suspicious activity." if suspicious else " No incident yet: patch first."),
+                "title": f"{name(o)} could be next",
+                "detail": f"Runs the product with {name(cve)}, the flaw {name(cid)} is using to get in."
+                          + (" Already showing suspicious traffic." if suspicious else " Not attacked yet, so patch it first."),
                 "entityKeys": [key(o), key(cve), key(cid)], "focus": key(o), "path": [key(o), key(cid)]})
 
     # 3. Infrastructure shared between campaigns, one item per campaign pair
@@ -723,9 +724,9 @@ def attention():
         names = [name(c) for c in cs]
         items.append({
             "kind": "overlap", "severity": "high",
-            "title": f"{' and '.join(names)} share {len(shared)} indicators",
-            "detail": ", ".join(sorted(name(n) for n in shared)) + ". Separate campaigns reusing infrastructure "
-                      "usually means shared operators or access being sold between groups.",
+            "title": f"{' and '.join(names)} share infrastructure",
+            "detail": ", ".join(sorted(name(n) for n in shared)) + " are used by both. Separate groups reusing the same "
+                      "servers usually means they work together or one sells access to the other.",
             "entityKeys": [key(n) for n in shared] + [key(c) for c in cs], "focus": key(shared[0]),
             "path": [key(cs[0]), key(cs[-1])]})
 
@@ -1116,3 +1117,128 @@ def communities(limit: int = 8):
                     "incidents": len(has("Incident"))})
     return {"algorithm": "Leiden", "ms": round((time.perf_counter() - t0) * 1000, 1),
             "communityCount": len(groups), "modularity": 0.0, "communities": out}
+
+
+# ---------------------------------------------------------------------------
+# Plain-language explanations for the story map
+# ---------------------------------------------------------------------------
+def _doc(key: str) -> Dict[str, Any]:
+    found = store.find_entity(db, key)
+    if not found:
+        raise HTTPException(404, f"Entity {key} not found")
+    label, _, doc = found
+    return {"label": label, **doc}
+
+
+def _fmt_date(v) -> Optional[str]:
+    return v.strftime("%d %b %Y") if isinstance(v, datetime) else None
+
+
+def _sentence(rtype: str, a: Dict[str, Any], b: Dict[str, Any]) -> str:
+    an, bn = a["name"], b["name"]
+    if rtype == "RUNS":
+        alias = ", ".join(a.get("aliases", [])) or a.get("motivation", "")
+        return f"{an} ({alias}) is the group behind the {bn} campaign."
+    if rtype == "USES":
+        caps = ", ".join(b.get("capabilities", []))
+        return f"The {an} campaign uses {bn}, a {b.get('malwareType', 'tool')}" + (f": {caps}." if caps else ".")
+    if rtype == "EXPLOITS":
+        return (f"The {an} campaign gets in through {bn}, a flaw in {b.get('product', 'a product')} "
+                f"rated {b.get('cvss')}/10. {b.get('summary', '')}")
+    if rtype == "TARGETS":
+        return f"The {an} campaign goes after {bn}, a {b.get('sector', '').lower()} organisation in {b.get('city', 'India')}."
+    if rtype == "CONTACTS":
+        if "phishing" in a.get("malwareType", ""):
+            return f"{an} is hosted on {bn}: one of the fake pages victims are sent to."
+        return f"{an} connects to {bn} to receive instructions or send stolen data (its command-and-control server)."
+    if rtype == "RESOLVES_TO":
+        where = f", hosted with {b['hostingProvider']} in {b.get('country', '?')}" if b.get("hostingProvider") else ""
+        return f"The domain {an} points to the server {bn}{where}."
+    if rtype == "REGISTERED_BY":
+        return (f"{an} was registered using the e-mail {bn}. Domains registered with the same e-mail "
+                "are very likely run by the same people.")
+    if rtype == "AFFECTED":
+        return f"{an} ({a.get('title', '')}) happened at {bn}."
+    if rtype == "OBSERVED":
+        return f"{bn} showed up in the logs while investigating {an} ({a.get('title', '')})."
+    if rtype == "INVOLVED":
+        return f"{bn} was found during {an} ({a.get('title', '')})."
+    if rtype == "ATTRIBUTED_TO":
+        return f"Analysts linked {an} to the {bn} campaign based on the tools and servers involved."
+    if rtype == "EXPOSED_TO":
+        return f"{an} runs {b.get('product', 'a product')}, which has the {bn} flaw. Until it is patched it is a likely next target."
+    if rtype == "SUPPLIES":
+        return f"{an} supplies software to {bn}, so a compromise at {an} reaches {bn} as well."
+    return f"{an} {rtype.replace('_', ' ').lower()} {bn}."
+
+
+def _story_steps(keys: List[str]) -> List[Dict[str, Any]]:
+    """Story steps (from any campaign) that mention all of the given entities."""
+    out = []
+    for c in db.campaigns.find({"story": {"$exists": True}}, {"name": 1, "story": 1}):
+        for i, st in enumerate(c.get("story", [])):
+            if all(k in st.get("entityKeys", []) or k == c["_id"] for k in keys):
+                out.append({"campaign": c["name"], "campaignKey": c["_id"], "index": i + 1, "of": len(c["story"]),
+                            "stage": st["stage"], "title": st["title"], "text": st["text"]})
+    return out
+
+
+@router.get("/explain/relationship/{rel_id}")
+def explain_relationship(rel_id: str):
+    r = db.relationships.find_one({"_id": rel_id})
+    if not r:
+        raise HTTPException(404, "Relationship not found")
+    a, b = _doc(r["from"]), _doc(r["to"])
+    steps = _story_steps([r["from"], r["to"]]) or _story_steps([r["to"]]) or _story_steps([r["from"]])
+    return {
+        "type": r["type"],
+        "from": {"key": r["from"], "name": a["name"], "label": a["label"]},
+        "to": {"key": r["to"], "name": b["name"], "label": b["label"]},
+        "sentence": _sentence(r["type"], a, b),
+        "evidence": {"confidence": r.get("confidence"), "source": r.get("source"),
+                     "firstSeen": _fmt_date(r.get("firstSeen")), "lastSeen": _fmt_date(r.get("lastSeen"))},
+        "steps": steps[:3],
+    }
+
+
+@router.get("/explain/entity/{key}")
+def explain_entity(key: str):
+    e = _doc(key)
+    label = e["label"]
+    if label == "ThreatActor":
+        text = e.get("description")
+    elif label == "Campaign":
+        text = e.get("summary") or e.get("objective")
+    elif label == "Malware":
+        text = f"A {e.get('malwareType')}: " + ", ".join(e.get("capabilities", [])) + "."
+    elif label == "Vulnerability":
+        text = (f"{e.get('summary', '')} Affects {e.get('product')} (CVSS {e.get('cvss')}"
+                + (", known to be exploited in the wild" if e.get("kev") else "") + ").")
+    elif label == "Organization":
+        text = f"{e.get('sector')} organisation in {e.get('city')}." + (" Supplies software to other organisations." if e.get("isVendor") else "")
+    elif label == "IPAddress":
+        text = f"Server hosted with {e.get('hostingProvider', 'an unknown provider')} in {e.get('country', '?')}."
+        if e.get("firstSeen"):
+            text += f" Seen between {_fmt_date(e.get('firstSeen'))} and {_fmt_date(e.get('lastSeen'))}."
+    elif label == "Domain":
+        text = f"Registered {_fmt_date(e.get('registeredAt')) or 'recently'} with {e.get('registrar', 'an unknown registrar')}."
+    elif label == "Email":
+        text = "E-mail address used to register attacker domains. A shared registrant ties domains to the same operator."
+    else:
+        text = f"{e.get('incidentType')} · {e.get('severity')} · {e.get('status')}. {e.get('description', '')}"
+    return {"key": key, "name": e["name"], "label": label, "title": e.get("title"), "text": text,
+            "steps": _story_steps([key])[:4]}
+
+
+@router.get("/campaigns/{key}/story")
+def campaign_story(key: str):
+    c = db.campaigns.find_one({"_id": key})
+    if not c:
+        raise HTTPException(404, "Campaign not found")
+    run = db.relationships.find_one({"type": "RUNS", "to": key})
+    a = db.threat_actors.find_one({"_id": run["from"]}) if run else None
+    return {"key": key, "name": c["name"], "status": c.get("status"), "objective": c.get("objective"),
+            "summary": c.get("summary"), "realWorld": c.get("realWorld"),
+            "actor": {"key": a["_id"], "name": a["name"], "alias": (a.get("aliases") or [""])[0],
+                      "description": a.get("description")} if a else None,
+            "story": c.get("story", [])}

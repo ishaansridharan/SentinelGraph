@@ -82,6 +82,52 @@ export interface AttentionItem {
   path?: [string, string];
 }
 
+export interface StoryStep {
+  stage: string;
+  title: string;
+  text: string;
+  entityKeys?: string[];
+}
+
+export interface StoryRef {
+  campaign: string;
+  campaignKey: string;
+  index: number;
+  of: number;
+  stage: string;
+  title: string;
+  text: string;
+}
+
+export interface CampaignStory {
+  key: string;
+  name: string;
+  status: string;
+  objective: string;
+  summary: string;
+  realWorld: string;
+  actor: { key: string; name: string; alias: string; description: string } | null;
+  story: StoryStep[];
+}
+
+export interface RelationshipExplanation {
+  type: string;
+  from: { key: string; name: string; label: string };
+  to: { key: string; name: string; label: string };
+  sentence: string;
+  evidence: { confidence: number | null; source: string | null; firstSeen: string | null; lastSeen: string | null };
+  steps: StoryRef[];
+}
+
+export interface EntityExplanation {
+  key: string;
+  name: string;
+  label: string;
+  title?: string;
+  text: string | null;
+  steps: StoryRef[];
+}
+
 export interface Overview {
   kpis: { activeCampaigns: number; openIncidents: number; criticalOpen: number; orgsAffected: number; exposedNotHit: number; unattributed: number };
   campaigns: Record<string, CaseStats>;
@@ -261,5 +307,8 @@ export const api = {
       modularity: number;
       communities: { id: number; size: number; hubs: GNode[]; actors: string[]; campaigns: string[]; organizations: string[]; incidents: number }[];
     }>('/api/v2/analytics/communities', { method: 'POST' }),
+  campaignStory: (key: string) => request<CampaignStory>(`/api/v2/campaigns/${encodeURIComponent(key)}/story`),
+  explainRelationship: (id: string) => request<RelationshipExplanation>(`/api/v2/explain/relationship/${encodeURIComponent(id)}`),
+  explainEntity: (key: string) => request<EntityExplanation>(`/api/v2/explain/entity/${encodeURIComponent(key)}`),
   health: () => request<{ status: string }>('/health'),
 };

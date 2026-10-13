@@ -85,7 +85,12 @@ VALIDATORS: Dict[str, Dict[str, Any]] = {
         "required": ["_id", "name", "status"],
         "properties": {"_id": _s(pattern="^CMP-"), "name": _s(), "objective": _s(),
                        "status": {"enum": ["active", "dormant", "concluded"]}, "startedAt": DATE,
-                       "sectors": STR_LIST, "regions": STR_LIST, **AUDIT}},
+                       "sectors": STR_LIST, "regions": STR_LIST, "summary": _s(), "realWorld": _s(),
+                       # the attack told step by step, each step pointing at the entities involved
+                       "story": {"bsonType": "array", "items": {"bsonType": "object", "required": ["stage", "title", "text"],
+                                                                 "properties": {"stage": _s(), "title": _s(), "text": _s(),
+                                                                                "entityKeys": STR_LIST}}},
+                       **AUDIT}},
     "malware": {
         "required": ["_id", "name", "malwareType"],
         "properties": {"_id": _s(pattern="^MAL-"), "name": _s(), "family": _s(), "malwareType": _s(),
@@ -199,8 +204,11 @@ def _graph_value(v):
     return v
 
 
+GRAPH_SKIP = {"_id", "type", "story", "realWorld"}
+
+
 def node_props(doc: Dict[str, Any]) -> Dict[str, Any]:
-    props = {k: _graph_value(v) for k, v in doc.items() if k not in ("_id", "type") and v is not None}
+    props = {k: _graph_value(v) for k, v in doc.items() if k not in GRAPH_SKIP and v is not None}
     props["entityKey"] = doc["_id"]
     return props
 

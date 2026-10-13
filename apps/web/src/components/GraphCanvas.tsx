@@ -9,7 +9,7 @@ import { Plus } from 'lucide-react';
 import type { GEdge, GNode, Lane } from '../lib/api';
 import { LANE_COLUMNS, NODE_W, NODE_H, columnX, layoutByHop, layoutDagre, layoutLanes, type LaneRect } from '../lib/layout';
 import { useTheme } from '../lib/theme';
-import { metaFor, subtitleFor } from '../theme/graphColors';
+import { metaFor } from '../theme/graphColors';
 
 type NodeData = {
   node: GNode;
@@ -24,9 +24,10 @@ type EdgeData = { type: string; showLabel: boolean; state: 'normal' | 'hi' | 'di
 const EntityNode = memo(function EntityNode({ data }: NodeProps<Node<NodeData>>) {
   const { node, center, selected, dim, onExpand } = data;
   const meta = metaFor(node.label);
-  const Icon = meta.icon;
-  const sub = subtitleFor(node.label, node.props) || meta.singular;
   const sev = node.label === 'Incident' ? String(node.props.severity ?? '') : '';
+  const right = node.badge
+    ? <span className={`gnode-badge solo tone-${node.badge.tone}`}>{node.badge.text}</span>
+    : sev ? <span className={`gnode-badge tone-${sev}`}>{sev}</span> : null;
   return (
     <div
       className={`gnode${center ? ' center' : ''}${selected ? ' selected' : ''}${dim ? ' dim' : ''}${node.status === 'exposed' ? ' exposed' : ''}`}
@@ -36,24 +37,10 @@ const EntityNode = memo(function EntityNode({ data }: NodeProps<Node<NodeData>>)
       <Handle type="target" position={Position.Left} id="l" />
       <Handle type="source" position={Position.Right} id="r" />
       <Handle type="target" position={Position.Right} id="rt" />
-      <div className="ent-icon" style={{ width: 30, height: 30 }}>
-        <Icon size={15} strokeWidth={2} />
+      <div className="gnode-top">
+        {node.badge ? right : <><span className="gnode-type">{meta.singular}</span>{right}</>}
       </div>
-      <div className="gnode-text">
-        <div className="gnode-name">{node.name}</div>
-        {node.badge ? (
-          <div className={`gnode-sub badge-${node.badge.tone}`}>
-            <span className={`sev ${node.badge.tone}`} />
-            <span className="ellipsis">{node.badge.text}</span>
-          </div>
-        ) : (
-          <div className="gnode-sub">
-            {sev && <span className={`sev ${sev}`} />}
-            <span className="ellipsis">{sub}</span>
-          </div>
-        )}
-      </div>
-      {node.degree !== undefined && <span className="gnode-deg">{node.degree}</span>}
+      <div className="gnode-name">{node.name}</div>
       {onExpand && (
         <button
           className="gnode-expand nodrag"
@@ -78,7 +65,7 @@ const LaneNode = memo(function LaneNode({ data }: NodeProps<Node<LaneData>>) {
         <span className="lane-title">{lane.title}</span>
         <span className="lane-sub">{lane.subtitle}</span>
         {onOpen && lane.kind === 'campaign' && (
-          <button className="lane-open nodrag" onClick={() => onOpen(lane)}>Open case →</button>
+          <button className="lane-open nodrag" onClick={() => onOpen(lane)}>Open case</button>
         )}
       </div>
     </div>
@@ -114,12 +101,13 @@ function LabeledEdge(props: EdgeProps<Edge<EdgeData>>) {
         path={path}
         markerEnd={markerEnd}
         markerStart={markerStart}
+        interactionWidth={12}
         style={{
           stroke,
           strokeWidth: state === 'hi' ? 1.75 : 1.25,
           strokeDasharray: data?.cross && state !== 'hi' ? '4 4' : undefined,
           opacity: state === 'dim' ? 0.12 : 1,
-          transition: 'opacity .15s',
+          transition: 'opacity .2s, stroke .2s',
         }}
       />
       {data?.showLabel && state !== 'dim' && (
@@ -143,6 +131,11 @@ export interface GraphCanvasProps {
   selectedId?: string | null;
   onSelect?: (n: GNode | null) => void;
   onExpand?: (n: GNode) => void;
+  /** Clicking a relationship (makes edges clickable) */
+  onEdgeSelect?: (e: GEdge) => void;
+  selectedEdgeId?: string | null;
+  /** Entity keys to spotlight; everything else is dimmed */
+  highlight?: Set<string> | null;
   showCross?: boolean;
   layout?: 'hop' | 'dagre' | 'lanes';
   lanes?: Lane[];
@@ -156,12 +149,13 @@ export interface GraphCanvasProps {
 
 function Canvas({
   size,
-  nodes, edges, centerId, selectedId, onSelect, onExpand, showCross = true, layout = 'hop', lanes, onOpenLane,
-  minimap = false, labelThreshold = 28, maxZoom = 1.15, minFitZoom = 0,
+  nodes, edges, centerId, selectedId, onSelect, onExpand, onEdgeSelect, selectedEdgeId, highlight,
+  showCross = true, layout = 'hop', lanes, onOpenLane, minimap = false, labelThreshold = 28, maxZoom = 1.15, minFitZoom = 0,
 }: GraphCanvasProps & { size: { w: number; h: number } }) {
   const theme = useTheme();
   const { setViewport } = useReactFlow();
   const [hovered, setHovered] = useState<string | null>(null);
+  const leaveTimer = useRef<number | undefined>(undefined);
 
   const visibleEdges = useMemo(() => edges.filter((e) => showCross || e.kind !== 'cross'), [edges, showCross]);
 
@@ -171,16 +165,25 @@ function Canvas({
     return { positions: layoutDagre(nodes, visibleEdges), rects: [] };
   }, [nodes, edges, visibleEdges, layout, lanes]);
 
-  const focus = hovered ?? selectedId ?? null;
-  const neighbours = useMemo(() => {
-    if (!focus) return null;
-    const s = new Set<string>([focus]);
-    visibleEdges.forEach((e) => {
-      if (e.source === focus) s.add(e.target);
-      if (e.target === focus) s.add(e.source);
-    });
-    return s;
-  }, [focus, visibleEdges]);
+  const keyOf = useMemo(() => new Map(nodes.map((n) => [n.id, n.key])), [nodes]);
+  const selectedEdge = selectedEdgeId ? visibleEdges.find((e) => e.id === selectedEdgeId) : undefined;
+
+  // What is "in focus": a hovered node wins, then a selected edge, then a
+  // selected node, then an external highlight (e.g. a story step).
+  const focus = hovered ?? (selectedEdge ? null : selectedId) ?? null;
+  const lit = useMemo(() => {
+    if (focus) {
+      const s = new Set<string>([focus]);
+      visibleEdges.forEach((e) => {
+        if (e.source === focus) s.add(e.target);
+        if (e.target === focus) s.add(e.source);
+      });
+      return s;
+    }
+    if (selectedEdge) return new Set([selectedEdge.source, selectedEdge.target]);
+    if (highlight && highlight.size) return new Set(nodes.filter((n) => highlight.has(n.key)).map((n) => n.id));
+    return null;
+  }, [focus, selectedEdge, highlight, visibleEdges, nodes]);
 
   const rfNodes: Node[] = useMemo(() => {
     const background: Node[] = [];
@@ -204,13 +207,13 @@ function Canvas({
           node: n,
           center: n.id === centerId,
           selected: n.id === selectedId,
-          dim: !!neighbours && !neighbours.has(n.id),
+          dim: !!lit && !lit.has(n.id),
           onExpand,
         },
         draggable: true,
       })),
     ];
-  }, [nodes, positions, rects, lanes, layout, centerId, selectedId, neighbours, onExpand, onOpenLane]);
+  }, [nodes, positions, rects, lanes, layout, centerId, selectedId, lit, onExpand, onOpenLane]);
 
   const rfEdges: Edge<EdgeData>[] = useMemo(() => {
     const smallGraph = visibleEdges.length <= labelThreshold;
@@ -219,10 +222,16 @@ function Canvas({
       // Draw left-to-right for clean beziers; the arrowhead keeps the true direction.
       const sameCol = ps && pt && Math.abs(ps.x - pt.x) < NODE_W / 2;
       const flip = !!ps && !!pt && !sameCol && ps.x > pt.x;
-      const active = !!focus && (e.source === focus || e.target === focus);
-      const state: EdgeData['state'] = !focus ? 'normal' : active ? 'hi' : 'dim';
+      let active: boolean;
+      if (focus) active = e.source === focus || e.target === focus;
+      else if (selectedEdge) active = e.id === selectedEdge.id;
+      else if (lit) active = lit.has(e.source) && lit.has(e.target);
+      else active = false;
+      const state: EdgeData['state'] = !lit ? 'normal' : active ? 'hi' : 'dim';
       const color = state === 'hi' ? 'var(--accent)' : e.kind === 'cross' ? 'var(--edge-cross)' : 'var(--edge)';
       const marker = { type: MarkerType.ArrowClosed, width: 14, height: 14, color };
+      // Edges always stay below the cards: raising them on hover put their
+      // hit-area over the hovered card and made hover flicker on and off.
       return {
         id: e.id,
         type: 'labeled',
@@ -233,10 +242,11 @@ function Canvas({
         markerEnd: flip ? undefined : marker,
         markerStart: flip ? marker : undefined,
         data: { type: e.type, showLabel: smallGraph || active, state, cross: e.kind === 'cross' },
-        zIndex: active ? 10 : 0,
+        selectable: !!onEdgeSelect,
+        focusable: false,
       };
     });
-  }, [visibleEdges, positions, focus, labelThreshold]);
+  }, [visibleEdges, positions, focus, selectedEdge, lit, labelThreshold, onEdgeSelect]);
 
   // Fit the viewport ourselves: every card has a known size, so there is no
   // need to wait for React Flow to measure the DOM before framing the graph.
@@ -260,8 +270,8 @@ function Canvas({
     let x = (W - bw * zoom) / 2 - minX * zoom;
     let y = (H - bh * zoom) / 2 - minY * zoom;
     if (minFitZoom && zoom < minFitZoom) {
-      // Too tall to fit legibly: fit the width, start at the top, scroll down
-      zoom = Math.min(maxZoom, Math.max(minFitZoom, (W - 2 * pad) / bw));
+      // Too tall to fit legibly: fit the width only, start at the top, scroll down
+      zoom = Math.min(maxZoom, (W - 2 * pad) / bw);
       x = (W - bw * zoom) / 2 - minX * zoom;
       y = pad - minY * zoom;
     }
@@ -284,13 +294,25 @@ function Canvas({
       maxZoom={2}
       onNodeClick={(_, n) => isEntity(n) && onSelect?.((n.data as NodeData).node)}
       onNodeDoubleClick={(_, n) => isEntity(n) && onExpand?.((n.data as NodeData).node)}
+      onEdgeClick={(_, e) => {
+        const ge = visibleEdges.find((x) => x.id === e.id);
+        if (ge && onEdgeSelect) onEdgeSelect({ ...ge, props: { ...ge.props, _fromKey: keyOf.get(ge.source), _toKey: keyOf.get(ge.target) } });
+      }}
       onPaneClick={() => onSelect?.(null)}
-      onNodeMouseEnter={(_, n) => isEntity(n) && setHovered(n.id)}
-      onNodeMouseLeave={() => setHovered(null)}
+      onNodeMouseEnter={(_, n) => {
+        if (!isEntity(n)) return;
+        window.clearTimeout(leaveTimer.current);
+        setHovered(n.id);
+      }}
+      onNodeMouseLeave={() => {
+        // small grace period so moving between a card and its "+" button doesn't flash
+        window.clearTimeout(leaveTimer.current);
+        leaveTimer.current = window.setTimeout(() => setHovered(null), 60);
+      }}
       nodesConnectable={false}
-      elevateEdgesOnSelect
+      elementsSelectable
     >
-      <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="var(--canvas-dot)" />
+      <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--canvas-dot)" />
       <Controls showInteractive={false} position="bottom-left" />
       {minimap && (
         <MiniMap
